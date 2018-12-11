@@ -1,3 +1,31 @@
+interface IdIdentifier {
+    kind: "idIdentifier";
+    id: string;
+}
+interface ClassWithIndex {
+    kind: "classWithIndex";
+    class: string;
+    index: number;
+}
+interface AbsElementPathVector {
+    kind: "absElementPathVector";
+    pathVector: number[];
+}
+
+type RootIdentifier = IdIdentifier | ClassWithIndex | AbsElementPathVector;
+
+function getRootNode(identifier: RootIdentifier): Element {
+    switch (identifier.kind) {
+        case "idIdentifier": return document.getElementById(identifier.id)!;
+        case "classWithIndex": return document.getElementsByClassName(identifier.class)[identifier.index];
+        case "absElementPathVector": return elementFromPath(document.body, identifier.pathVector);
+    }
+}
+
+
+
+
+
 /**
  * Handles a specific highlighted text in the DOM
  */
@@ -10,9 +38,9 @@ export default class Highlighted {
     readonly endOffSet: number;
     readonly offset: number;
     readonly version: number | null;
-    readonly rootXpath: string;
+    readonly rootId: RootIdentifier;
 
-    private constructor(elementPath: number[], searchPosition: number, nodeTextIndex: number, nodeIndex: number, text: string, endOffSet: number, offset: number, version: number | null, rootXpath: string) {
+    private constructor(elementPath: number[], searchPosition: number, nodeTextIndex: number, nodeIndex: number, text: string, endOffSet: number, offset: number, version: number | null, rootId: RootIdentifier) {
         this.elementPath = elementPath;
         this.searchPosition = searchPosition;
         this.nodeTextIndex = nodeTextIndex;
@@ -21,7 +49,7 @@ export default class Highlighted {
         this.endOffSet = endOffSet;
         this.offset = offset;
         this.version = version;
-        this.rootXpath = rootXpath;
+        this.rootId = rootId;
     }
 
 
@@ -50,19 +78,19 @@ export default class Highlighted {
      * @param rootXpath - {@link Xpath | Xpath} element to serve as root for the Highlighed instance
      * @param version - Optional - the document version
      */
-    static fromRange(range: Range, rootXpath: string, version: number | null): Highlighted | undefined {
+    static fromRange(range: Range, rootId: RootIdentifier, version: number | null): Highlighted | undefined {
         if (range.startContainer === range.endContainer) {
-            const root = execXpath(rootXpath);
+            const root = getRootNode(rootId);
             return new Highlighted(
                 pathFrom(range.startContainer.parentElement, root),
-                locateTermIndex(execXpath(rootXpath), range),
+                locateTermIndex(root, range),
                 nodeTextIndex(range.startContainer, root),
                 childNodeIndex(range.startContainer),
                 range.toString(),
                 range.endOffset,
                 range.startOffset,
                 version,
-                rootXpath
+                rootId
             );
         }
     }
@@ -74,9 +102,9 @@ export default class Highlighted {
      * @param rootXpath - {@link Xpath | Xpath} element to serve as root for the Highlighed instance
      * @param version - Optional - the document version
      */
-    static fromSelection(selection: Selection, rootXpath: string, version: number | null): Highlighted | undefined {
+    static fromSelection(selection: Selection, rootId: RootIdentifier, version: number | null): Highlighted | undefined {
         if (selection.rangeCount > 1) throw new Error("can not comment multiple ranges");
-        else return Highlighted.fromRange(selection.getRangeAt(0), rootXpath, version);
+        else return Highlighted.fromRange(selection.getRangeAt(0), rootId, version);
     }
 
     /**
@@ -86,27 +114,24 @@ export default class Highlighted {
      */
     public toRange(locationTolerance = 0, stringTolerance = 0): Range {
         const range = document.createRange();
-        const root = execXpath(this.rootXpath);
+        const root = getRootNode(this.rootId);
         try {
             const node = elementFromPath(root, this.elementPath).childNodes[this.nodeIndex];
-            if (getText(node).includes(this.text)) {
+            if (node.textContent!.includes(this.text)) {
                 range.setStart(node, this.offset);
                 range.setEnd(node, this.endOffSet);
+            } else {
+                throw new Error("path does not include the highlighted text");
             }
         } catch (e) {
-            const rootText = getText(root);
-            const occurences = searchAll(rootText, this.text);
+            const rootText = root.textContent;
+            const occurences = searchAll(rootText!, this.text);
             const [updatedNode, updatedOffset] = nodeAt(occurences[this.searchPosition], root);
             range.setStart(updatedNode, updatedOffset);
             range.setEnd(updatedNode, updatedOffset + this.text.length);
         }
         return range;
     }
-}
-
-function execXpath(xpath: string): Element {
-    // tslint:disable-next-line:no-null-keyword
-    return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as Element;
 }
 
 /**
@@ -170,7 +195,7 @@ function nodeTextIndex(node: Node, root: Node): number {
         const nextAnc: Node = childNodesArray.filter(n => n.contains(node)).pop()!;
         return childNodesArray
             .slice(0, childNodesArray.indexOf(nextAnc))
-            .reduce((acc: number, n: Node) => acc + getText(n).length, 0)
+            .reduce((acc: number, n: Node) => acc + n.textContent!.length, 0)
             + nodeTextIndex(node, nextAnc);
     }
 }
@@ -198,19 +223,11 @@ export function nodeAt(index: number, root: Node): [Node, number] {
 function getChildWithIndex(index: number, root: Element, childN = 0): [number, Node] {
     const childNodesArray = nodeListToArray(root.childNodes).filter(node =>
         node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE);
-    const childLength = getText(childNodesArray[childN]).length;
+    const childLength = childNodesArray[childN].textContent!.length;
     if (index < childLength) return [index, childNodesArray[childN]];
     else return getChildWithIndex(index - childLength, root, childN + 1);
 }
 
-
-/**
- * Get the full text of the node
- */
-export function getText(node: Node): string {
-    if (node.nodeType === Node.TEXT_NODE) return (node as Text).data;
-    else return nodeListToArray(node.childNodes).reduce((acc: string, n: Node) => acc + getText(n), "");
-}
 
 function searchAll(str: string, searchTerm: string): number[] {
     const result: number[] = [];
@@ -228,8 +245,8 @@ function searchAll(str: string, searchTerm: string): number[] {
  * @returns tuple of the node containing the search term and a number representing the offset from the beggining of the node
  */
 export function locateTerm(root: Node, searchTerm: string, position: number): [Node, number] {
-    const nodeText = getText(root);
-    const termIndex = searchAll(nodeText, searchTerm)[position];
+    const nodeText = root.textContent;
+    const termIndex = searchAll(nodeText!, searchTerm)[position];
     return nodeAt(termIndex, root);
 }
 
@@ -239,8 +256,8 @@ export function locateTerm(root: Node, searchTerm: string, position: number): [N
  * @param range - range to extract text from
  */
 export function locateTermIndex(root: Node, range: Range): number {
-    const nodeText = getText(root);
-    const termIndices = searchAll(nodeText, range.toString());
+    const nodeText = root.textContent;
+    const termIndices = searchAll(nodeText!, range.toString());
     const absOffset = nodeTextIndex(range.startContainer, root) + range.startOffset;
     return termIndices.indexOf(absOffset);
 }
