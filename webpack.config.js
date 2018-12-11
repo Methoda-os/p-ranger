@@ -16,9 +16,9 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        library: 'co-ranger',
+        library: 'Pranger',
         libraryTarget: 'window',
         libraryExport: 'default',
         path: path.resolve(__dirname, 'dist')
     }
-}
+};

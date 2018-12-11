@@ -1,37 +1,20 @@
 /**
- * Represents Xpath hto an element
- */
-class Xpath {
-    readonly value: string;
-    constructor(value: string) {
-        this.value = value;
-    }
-    /**
-     * Returns an element this Xpath can point to
-     */
-    getElement(): Element {
-        // tslint:disable-next-line:no-null-keyword
-        const node =  document.evaluate(this.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-        return (node as Element);
-    }
-}
-
-
-/**
  * Handles a specific highlighted text in the DOM
  */
 export default class Highlighted {
     readonly elementPath: number[];
+    readonly searchPosition: number;
     readonly nodeTextIndex: number;
     readonly nodeIndex: number;
     readonly text: string;
     readonly endOffSet: number;
     readonly offset: number;
     readonly version: number | null;
-    readonly rootXpath: Xpath;
+    readonly rootXpath: string;
 
-    private constructor(elementPath: number[], nodeTextIndex: number, nodeIndex: number, text: string, endOffSet: number, offset: number, version: number | null, rootXpath: Xpath) {
+    private constructor(elementPath: number[], searchPosition: number, nodeTextIndex: number, nodeIndex: number, text: string, endOffSet: number, offset: number, version: number | null, rootXpath: string) {
         this.elementPath = elementPath;
+        this.searchPosition = searchPosition;
         this.nodeTextIndex = nodeTextIndex;
         this.nodeIndex = nodeIndex;
         this.text = text;
@@ -41,6 +24,7 @@ export default class Highlighted {
         this.rootXpath = rootXpath;
     }
 
+
     /**
      * Generate Highlighted instance from json
      * @param json - Json string represents a Highlighted instance
@@ -49,13 +33,14 @@ export default class Highlighted {
         const obj = JSON.parse(json);
         return new Highlighted(
             obj.elementPath,
+            obj.searchPosition,
             obj.nodeTextIndex,
             obj.nodeIndex,
             obj.text,
             obj.endOffSet,
             obj.offset,
             obj.version,
-            new Xpath(obj.rootXpath.value)
+            obj.rootXpath
         );
     }
 
@@ -65,11 +50,13 @@ export default class Highlighted {
      * @param rootXpath - {@link Xpath | Xpath} element to serve as root for the Highlighed instance
      * @param version - Optional - the document version
      */
-    static fromRange(range: Range, rootXpath: Xpath, version: number | null): Highlighted | undefined {
+    static fromRange(range: Range, rootXpath: string, version: number | null): Highlighted | undefined {
         if (range.startContainer === range.endContainer) {
+            const root = execXpath(rootXpath);
             return new Highlighted(
-                pathFrom(range.startContainer.parentElement, rootXpath.getElement()),
-                nodeTextIndex(range.startContainer, rootXpath.getElement()),
+                pathFrom(range.startContainer.parentElement, root),
+                locateTermIndex(execXpath(rootXpath), range),
+                nodeTextIndex(range.startContainer, root),
                 childNodeIndex(range.startContainer),
                 range.toString(),
                 range.endOffset,
@@ -87,7 +74,7 @@ export default class Highlighted {
      * @param rootXpath - {@link Xpath | Xpath} element to serve as root for the Highlighed instance
      * @param version - Optional - the document version
      */
-    static fromSelection(selection: Selection, rootXpath: Xpath, version: number | null): Highlighted | undefined {
+    static fromSelection(selection: Selection, rootXpath: string, version: number | null): Highlighted | undefined {
         if (selection.rangeCount > 1) throw new Error("can not comment multiple ranges");
         else return Highlighted.fromRange(selection.getRangeAt(0), rootXpath, version);
     }
@@ -99,11 +86,27 @@ export default class Highlighted {
      */
     public toRange(locationTolerance = 0, stringTolerance = 0): Range {
         const range = document.createRange();
-        const node = elementFromPath(this.rootXpath.getElement(), this.elementPath).childNodes[this.nodeIndex];
-        range.setStart(node, this.offset);
-        range.setEnd(node, this.endOffSet);
+        const root = execXpath(this.rootXpath);
+        try {
+            const node = elementFromPath(root, this.elementPath).childNodes[this.nodeIndex];
+            if (getText(node).includes(this.text)) {
+                range.setStart(node, this.offset);
+                range.setEnd(node, this.endOffSet);
+            }
+        } catch (e) {
+            const rootText = getText(root);
+            const occurences = searchAll(rootText, this.text);
+            const [updatedNode, updatedOffset] = nodeAt(occurences[this.searchPosition], root);
+            range.setStart(updatedNode, updatedOffset);
+            range.setEnd(updatedNode, updatedOffset + this.text.length);
+        }
         return range;
     }
+}
+
+function execXpath(xpath: string): Element {
+    // tslint:disable-next-line:no-null-keyword
+    return document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as Element;
 }
 
 /**

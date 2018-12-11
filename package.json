@@ -8,9 +8,6 @@
     "pack": "webpack --mode production",
     "dev-pack": "webpack --mode development --devtools inline-source-map --watch"
   },
-  "publishConfig": {
-    "registry": "http://ec2-34-244-73-0.eu-west-1.compute.amazonaws.com/repository/methoda-npm/"
-  },
   "author": "David Brama <david.brama@methoda.com>",
   "devDependencies": {
     "@babel/core": "^7.2.0",
