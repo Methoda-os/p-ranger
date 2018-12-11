@@ -5,9 +5,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "pack": "webpack --mode production",
-    "dev-pack": "webpack --mode development --devtools inline-source-map --watch"
+    "build": "webpack --mode production",
+    "dev-build": "webpack --mode development --devtools inline-source-map --watch"
   },
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/Methoda-os/p-ranger.git"
+  },
+  "license": "Apache-2.0",
   "author": "David Brama <david.brama@methoda.com>",
   "devDependencies": {
     "@babel/core": "^7.2.0",
