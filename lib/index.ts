@@ -4,7 +4,7 @@ interface IdIdentifier {
 }
 interface ClassWithIndex {
     kind: "classWithIndex";
-    class: string;
+    className: string;
     index: number;
 }
 interface AbsElementPathVector {
@@ -17,7 +17,7 @@ type RootIdentifier = IdIdentifier | ClassWithIndex | AbsElementPathVector;
 function getRootNode(identifier: RootIdentifier): Element {
     switch (identifier.kind) {
         case "idIdentifier": return document.getElementById(identifier.id)!;
-        case "classWithIndex": return document.getElementsByClassName(identifier.class)[identifier.index];
+        case "classWithIndex": return document.getElementsByClassName(identifier.className)[identifier.index];
         case "absElementPathVector": return elementFromPath(document.body, identifier.pathVector);
     }
 }
