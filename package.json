@@ -1,12 +1,11 @@
 {
   "name": "p-ranger",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Tools for handling range operations",
-  "main": "dist/bundle.js",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "webpack --mode production",
-    "dev-build": "webpack --mode development --devtools inline-source-map --watch"
+    "build": "tsc"
   },
   "repository": {
     "type" : "git",
@@ -15,21 +14,11 @@
   "license": "Apache-2.0",
   "author": "David Brama <david.brama@methoda.com>",
   "devDependencies": {
-    "@babel/core": "^7.2.0",
-    "@babel/plugin-proposal-class-properties": "^7.2.1",
-    "@babel/plugin-proposal-object-rest-spread": "^7.2.0",
-    "@babel/preset-env": "^7.2.0",
-    "@babel/preset-typescript": "^7.1.0",
-    "babel-loader": "^8.0.4",
-    "babel-plugin-tailcall-optimization": "^1.0.13",
     "chai": "^4.2.0",
     "jsdom": "^13.0.0",
     "mocha": "^5.2.0",
     "source-map-loader": "^0.2.4",
-    "ts-loader": "^5.3.1",
-    "typescript": "^3.1.6",
-    "webpack": "^4.27.1",
-    "webpack-cli": "^3.1.2"
+    "typescript": "^3.1.6"
   },
   "dependencies": {}
 }
