@@ -231,9 +231,10 @@ function getChildWithIndex(index: number, root: Element, childN = 0): [number, N
 
 function searchAll(str: string, searchTerm: string): number[] {
     const result: number[] = [];
-    const regexp = new RegExp(searchTerm, "gi");
-    let regexResult: RegExpExecArray | null;
-    while (regexResult = regexp.exec(str)) result.push(regexResult.index);
+    // tslint:disable-next-line:prefer-for-of
+    for (let i = 0; i < str.length; ++i) {
+        if (str.substring(i, i + searchTerm.length) === searchTerm) result.push(i);
+    }
     return result;
 }
 
