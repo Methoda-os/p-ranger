@@ -68,7 +68,7 @@ export default class Highlighted {
             obj.endOffSet,
             obj.offset,
             obj.version,
-            obj.rootXpath
+            obj.rootId
         );
     }
 
@@ -117,7 +117,7 @@ export default class Highlighted {
         const root = getRootNode(this.rootId);
         try {
             const node = elementFromPath(root, this.elementPath).childNodes[this.nodeIndex];
-            if (node.textContent!.includes(this.text)) {
+            if (node.textContent!.substring(this.offset, this.endOffSet) === this.text) {
                 range.setStart(node, this.offset);
                 range.setEnd(node, this.endOffSet);
             } else {
@@ -175,11 +175,6 @@ export function elementFromPath(root: Element, path: number[]): Element {
 
 
 
-function nodeListToArray(nodeList: NodeList): Node[] {
-    const nodeArray: Node[] = [];
-    nodeList.forEach(node => nodeArray.push(node));
-    return nodeArray;
-}
 
 /**
  * Where a specific node is located in the root node text
@@ -190,14 +185,29 @@ function nodeListToArray(nodeList: NodeList): Node[] {
 function nodeTextIndex(node: Node, root: Node): number {
     if (node === root) return 0;
     else {
-        const childNodesArray = nodeListToArray(root.childNodes).filter(node =>
+        const childNodesArray = Array.from(root.childNodes).filter(node =>
             node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE);
-        const nextAnc: Node = childNodesArray.filter(n => n.contains(node)).pop()!;
+        const nextAnc = childNodesArray.filter(n => hasNode(n,node)).pop()!;
         return childNodesArray
             .slice(0, childNodesArray.indexOf(nextAnc))
             .reduce((acc: number, n: Node) => acc + n.textContent!.length, 0)
             + nodeTextIndex(node, nextAnc);
     }
+}
+
+//IE Node.contains returns false for contained text nodes
+function hasNode(element: Node, node: Node) : boolean {
+    if (!isIE()) return element.contains(node);
+    let childNodesArray = Array.from(element.childNodes);
+    if (childNodesArray.includes(node as ChildNode)) return true;
+    else if (childNodesArray.length === 0) return false;
+    else return childNodesArray.some(it => hasNode(it,node));
+}
+
+function isIE() {
+    let ua = navigator.userAgent;
+    /* MSIE used to detect old browsers and Trident used to newer ones*/
+    return ua.indexOf("MSIE ") > -1 || ua.indexOf("Trident/") > -1;
 }
 
 /**
@@ -221,7 +231,7 @@ export function nodeAt(index: number, root: Node): [Node, number] {
  * @returns - a tuple of the immediate child node that contains the position in the root text, and a number representing the offset of the position from start of node
  */
 function getChildWithIndex(index: number, root: Element, childN = 0): [number, Node] {
-    const childNodesArray = nodeListToArray(root.childNodes).filter(node =>
+    const childNodesArray = Array.from(root.childNodes).filter(node =>
         node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE);
     const childLength = childNodesArray[childN].textContent!.length;
     if (index < childLength) return [index, childNodesArray[childN]];
