@@ -1,6 +1,6 @@
 {
   "name": "p-ranger",
-  "version": "0.1.9",
+  "version": "0.1.12",
   "description": "Tools for handling range operations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

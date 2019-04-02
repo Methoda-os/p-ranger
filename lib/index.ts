@@ -75,14 +75,18 @@ export default class Highlighted {
     /**
      * Generate Highlighted instance from a {@link Range | Range}, if range starts and ends in the same node. otherwise undefined
      * @param range
-     * @param rootXpath - {@link Xpath | Xpath} element to serve as root for the Highlighed instance
+     * @param rootId - element identifier to serve as root for the Highlighed instance
      * @param version - Optional - the document version
      */
     static fromRange(range: Range, rootId: RootIdentifier, version: number | null): Highlighted | undefined {
-        if (range.startContainer === range.endContainer) {
+        let sameElement = isIE()?
+            (range.startContainer.parentNode === range.endContainer.parentNode):
+            (range.startContainer.parentElement === range.endContainer.parentElement);
+        if (sameElement) {
             const root = getRootNode(rootId);
+            const parentElement = isIE()? (range.startContainer.parentNode as Element): range.startContainer.parentElement;
             return new Highlighted(
-                pathFrom(range.startContainer.parentElement, root),
+                pathFrom(parentElement, root),
                 locateTermIndex(root, range),
                 nodeTextIndex(range.startContainer, root),
                 childNodeIndex(range.startContainer),
